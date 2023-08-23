@@ -177,7 +177,7 @@ Shader "TextMeshPro/TMP_SDF_Effect"
             	float4 worldPosition : TEXCOORD7;
             	
                 #ifdef UNITY_UI_FOG
-                UNITY_FOG_COORDS(7)
+                UNITY_FOG_COORDS(8)
             	#endif
             };
 
@@ -368,7 +368,7 @@ Shader "TextMeshPro/TMP_SDF_Effect"
 				clip(faceColor.a - 0.001);
                 #endif
 
-                //faceColor = faceColor * input.color.a;
+                faceColor = faceColor * input.color.a;
                 faceColor.r = saturate(faceColor.r);
                 faceColor.g = saturate(faceColor.g);
                 faceColor.b = saturate(faceColor.b);

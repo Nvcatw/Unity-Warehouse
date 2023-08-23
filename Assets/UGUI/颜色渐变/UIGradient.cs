@@ -9,11 +9,8 @@ namespace UnityEngine.UI
 {
 
     [ExecuteAlways]
-    public class Gradient : UIBehaviour, IMaterialModifier
+    public class UIGradient : UIBehaviour, IMaterialModifier
     {
-
-        [NonSerialized]
-        private Graphic m_Graphic;
 
         /// <summary>
         /// The graphic associated with the Mask.
@@ -22,6 +19,9 @@ namespace UnityEngine.UI
         {
             get { return m_Graphic ?? (m_Graphic = GetComponent<Graphic>()); }
         }
+
+        [NonSerialized]
+        private Graphic m_Graphic;
 
         [NonSerialized]
         private Material m_GradientMaterial;
@@ -49,7 +49,7 @@ namespace UnityEngine.UI
 
         [SerializeField]
         private Texture2D m_GradientTex;
-        public Texture2D gradientTex { get { return m_GradientTex; } set { if (m_GradientTex != value) { SetGradientTexture(value); } } }
+        public Texture2D gradientTex { get { return m_GradientTex; } set { if (m_GradientTex != value) { m_GradientTex = value; SetGradientTexture(value); } } }
 
         [NonSerialized]
         private Vector2 lastpivot;
@@ -61,6 +61,7 @@ namespace UnityEngine.UI
             m_BaseMaterial = null;
             if (graphic != null)
             {
+                SetEnabledGradient(true);
                 graphic.SetMaterialDirty();
                 Canvas.willRenderCanvases += PerformUpdate;
             }
@@ -70,14 +71,15 @@ namespace UnityEngine.UI
         {
             if (graphic != null)
             {
-            Canvas.willRenderCanvases -= PerformUpdate;
+                SetEnabledGradient(false);
                 graphic.SetMaterialDirty();
             }
+            Canvas.willRenderCanvases -= PerformUpdate;
         }
 
         private void PerformUpdate()
         {
-            if(!IsActive())
+            if (!IsActive() || graphic.canvas == null)
                 return;
 
             //检测到位置发生改变时，进行刷新
@@ -98,13 +100,19 @@ namespace UnityEngine.UI
         /// </summary>
         void Refresh()
         {
-            Vector2 pivot = graphic.transform.position - graphic.canvas.transform.position;
-            pivot /= new Vector2(graphic.canvas.transform.lossyScale.x, graphic.canvas.transform.lossyScale.y);
-            Rect rect = graphic.rectTransform.rect;
-            Vector2 min = rect.min + pivot;
-            Vector2 max = rect.max + pivot;
+            if (m_GradientMaterial == null || graphic.canvas == null) return;
 
-            Vector2 centen = min + (new Vector2(0.5f, 0.5f) + offset) * rect.size;
+            Vector2 pivot = graphic.transform.position - graphic.canvas.transform.position;
+            pivot /= new Vector2(graphic.canvas.transform.lossyScale.x, graphic.canvas.transform.transform.lossyScale.y);
+
+            float scaleX = graphic.transform.lossyScale.x / graphic.canvas.transform.lossyScale.x;
+            float scaleY = graphic.transform.lossyScale.y / graphic.canvas.transform.lossyScale.y;
+            Vector2 scale = new Vector2(scaleX, scaleY);
+            Rect rect = graphic.rectTransform.rect;
+            Vector2 min = rect.min * scale + pivot;
+            Vector2 max = rect.max * scale + pivot;
+
+            Vector2 centen = min + (new Vector2(0.5f, 0.5f) + offset) * rect.size * scale;
 
             //计算过渡直线与矩形相交的两个点，求出过渡半径
             //y-kx+ka-d=0
@@ -156,7 +164,7 @@ namespace UnityEngine.UI
             float axisB = -(axisK * centen.x - centen.y);
 
             Vector4 dis = new Vector4(distance, r, axisK, axisB);
-            
+
             m_GradientMaterial.SetVector("_AxisData", dis);
         }
 
@@ -165,9 +173,9 @@ namespace UnityEngine.UI
             if (m_BaseMaterial != baseMaterial)
             {
                 m_GradientMaterial = new Material(baseMaterial);
-                m_GradientMaterial.name = "Gradient, "+baseMaterial.name;
+                m_GradientMaterial.name = "Gradient, " + baseMaterial.name;
                 m_GradientMaterial.hideFlags = HideFlags.DontSave;
-                m_GradientMaterial.EnableKeyword("UNITY_UI_GRADIENT");
+                SetEnabledGradient(true);
                 m_BaseMaterial = baseMaterial;
             }
 
@@ -180,6 +188,20 @@ namespace UnityEngine.UI
         {
             if (m_GradientMaterial != null)
                 m_GradientMaterial.SetTexture("_GradientTex", tex);
+        }
+
+        private void SetEnabledGradient(bool enabled)
+        {
+            if (m_GradientMaterial == null) return;
+
+            if (enabled)
+            {
+                m_GradientMaterial.EnableKeyword("UNITY_UI_GRADIENT");
+            }
+            else
+            {
+                m_GradientMaterial.DisableKeyword("UNITY_UI_GRADIENT");
+            }
         }
 
 #if UNITY_EDITOR
